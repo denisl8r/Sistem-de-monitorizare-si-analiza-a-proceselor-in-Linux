@@ -1,5 +1,108 @@
 #!/bin/bash
-echo "nou"
-
-
-
+clear
+verf1=0
+var1=
+while [ $verf1 -eq 0 ]
+do
+clear
+echo "Cauta un proces dupa nume sau PID"
+echo
+verf11=0
+while [ $verf11 -eq 0 ]
+do
+com1=
+echo "Introdu numele sau pid-ul procesului: "
+read com1
+echo
+if [[ -z $com1 ]]
+then
+echo "Nu a fost introdus un nume sau pid"
+sleep 1
+clear
+else
+if [[ ! "$com1" =~ [a-zA-Z] ]]
+then
+dum1=$(ps $com1 | head -n -1)
+if [[ -z $dum1 ]]
+then
+echo "Nu exista procesul cautat"
+else
+ps -o pid,comm $com1
+fi
+else
+com1=$(pgrep -x $com1)
+nrproc1=$(ps -o pid,comm $com1 | head -n -1 | wc -l)
+if [[ -z $com1 ]]
+then
+echo "Nu exista procesul cautat"
+else
+if [[ $nrproc1 -gt 1 ]]
+then
+echo "Au fost gasite mai multe procese cu aceleasi nume!"
+echo
+echo "$(ps -o pid,comm $com1)"
+echo
+echo "Alege procesul dorit dupa PID:"
+pidAles=
+read pidAles
+com1=$pidAles
+ps -o pid,comm $com1
+else
+ps -o pid,comm $com1
+fi
+fi
+fi
+fi
+finvf1=0
+while [ $finvf1 -eq 0 ]
+do
+echo
+echo "Doresti sa cauti alt proces (da/nu)?"
+read rasp1
+if [[ $rasp1 = "da" || $rasp1 = "nu" ]]
+then
+finvf1=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $rasp1 in
+"nu") verf11=1
+verf2=0
+while [ $verf2 -eq 0 ]
+do
+echo
+echo "Alege ce vrei sa faci cu procesul cautat:"
+echo "1) Opreste procesul"
+echo "2) Modifica prioritatea procesului"
+echo "3) Afiseaza informatii detaliate despre proces"
+echo "4) Cauta alt proces"
+echo "5) Nimic"
+echo
+option=
+read option
+case $option in
+1) kill $com1 ;;
+2)verf12=0
+while [ $verf12 -eq 0 ]
+do
+ echo "Introdu o valoare de la -20 la +19:"
+read val1 
+if [[ $val1 -gt 19 || $val1 -lt -20 ]]
+then
+echo "Valoarea introdusa nu este posibila"
+else
+sudo renice $val1 -p $com1 
+verf12=1
+fi
+done;;
+3) ps -o pid,ppid,user,comm,%cpu,%mem,etime,state $com1
+echo ;;
+4)verf2=1 ;;
+5) exit;;
+esac
+done
+;;
+esac
+done
+done
