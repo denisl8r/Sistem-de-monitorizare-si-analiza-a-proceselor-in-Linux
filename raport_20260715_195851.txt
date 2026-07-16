@@ -1,0 +1,51 @@
+
+Raport de monitorizare procese
+Data si ora: 2026-07-15 19:58:52
+
+
+Numar total de procese: 233
+
+Numar procese pe fiecare utilizator:
+    140 root
+     83 denis
+      2 kernoops
+      2 avahi
+      1 systemd-resolve
+      1 syslog
+      1 rtkit
+      1 polkitd
+      1 messagebus
+      1 cups-browsed
+      1 colord
+
+Primele 10 procese dupa utilizarea CPU:
+   1848 cinnamon         3.1  4.0
+   1136 Xorg             1.0  1.8
+   2320 mintreport-tray  0.4  0.7
+   1547 VBoxClient       0.2  0.0
+   1912 nemo-desktop     0.1  0.7
+  23161 VBoxService      0.1  0.0
+   1540 VBoxClient       0.0  0.0
+  23156 VBoxDRMClient    0.0  0.0
+      1 systemd          0.0  0.1
+   2185 gnome-terminal-  0.0  0.5
+
+Primele 10 procese dupa utilizarea memoriei:
+   1848 cinnamon         3.1  4.0
+   1136 Xorg             1.0  1.8
+   2258 mintUpdate       0.0  1.1
+   1926 evolution-alarm  0.0  0.7
+   1912 nemo-desktop     0.1  0.7
+   2320 mintreport-tray  0.4  0.7
+   1904 blueman-applet   0.0  0.6
+   2353 fwupd            0.0  0.5
+   2185 gnome-terminal-  0.0  0.5
+   1613 ibus-ui-gtk3     0.0  0.5
+
+Procese care au depasit pragul CPU (80%):
+
+Procese care au depasit pragul de memorie (80%):
+
+Procese zombie:
+Nu exista procese zombie in acest moment.
+

@@ -1,7 +1,191 @@
 #!/bin/bash
+
+FISIER_CONFIG="config"
+
+INTERVAL_MONITORIZARE=60
+PRAG_PROCESE_COPIL=10
+PRAG_CPU=80
+PRAG_MEMORIE=80
+FISIER_LOG="monitor.log"
+
+if [ -f "$FISIER_CONFIG" ]
+then
+source "$FISIER_CONFIG"
+fi
+
+scrie_log() {
+echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$FISIER_LOG"
+}
+
+scrie_log "Aplicatia a fost pornita."
+
+clear
+verfM=0
+while [ $verfM -eq 0 ]
+do
+clear
+echo
+echo " Sistem de monitorizare si analiza a proceselor"
+echo
+echo "1) Afiseaza toate procesele"
+echo "2) Analiza relatii parinte-copil"
+echo "3) Top procese dupa CPU si memorie"
+echo "4) Procese vechi si procese zombie"
+echo "5) Administrare procese (cautare, oprire, prioritate, detalii)"
+echo "6) Genereaza raport acum"
+echo "7) Porneste monitorizarea continua (interval fix)"
+echo "8) Iesire"
+echo
+optM=
+read optM
+case $optM in
+
+1)
+clear
+echo "Toate procesele active:"
+echo
+ps -eo pid,ppid,user,comm,%cpu,%mem,etime,state --no-headers
+finvfM=0
+while [ $finvfM -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read raspM
+if [[ $raspM = "da" || $raspM = "nu" ]]
+then
+finvfM=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $raspM in
+"nu") verfM=1 ;;
+esac
+;;
+
+2)
+clear
+echo "Analiza proceselor parinte si copil:"
+echo
+ps -eo pid --no-headers | while read pid_curent
+do
+nr_copii=$(pgrep -P "$pid_curent" | wc -l)
+if [ "$nr_copii" -gt 0 ]
+then
+nume_proces=$(ps -o comm= -p "$pid_curent" 2>/dev/null)
+echo "PID $pid_curent ($nume_proces) are $nr_copii procese copil"
+if [ "$nr_copii" -gt "$PRAG_PROCESE_COPIL" ]
+then
+echo "  ALERTA: procesul $pid_curent a depasit pragul de $PRAG_PROCESE_COPIL procese copil!"
+scrie_log "ALERTA: procesul $pid_curent ($nume_proces) are $nr_copii procese copil, peste pragul $PRAG_PROCESE_COPIL"
+fi
+fi
+done
+echo
+echo "Doresti sa vezi si arborele de procese (da/nu)?"
+finvfA=0
+while [ $finvfA -eq 0 ]
+do
+read raspA
+if [[ $raspA = "da" || $raspA = "nu" ]]
+then
+finvfA=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+if [ $raspA = "da" ]
+then
+if command -v pstree >/dev/null 2>&1
+then
+pstree -p
+else
+echo "Comanda pstree nu este instalata pe acest sistem."
+fi
+fi
+finvfM=0
+while [ $finvfM -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read raspM
+if [[ $raspM = "da" || $raspM = "nu" ]]
+then
+finvfM=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $raspM in
+"nu") verfM=1 ;;
+esac
+;;
+
+3)
+clear
+echo "Primele 10 procese dupa utilizarea CPU:"
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu --no-headers | head -n 10
+echo
+echo "Primele 10 procese dupa utilizarea memoriei:"
+ps -eo pid,comm,%cpu,%mem --sort=-%mem --no-headers | head -n 10
+finvfM=0
+while [ $finvfM -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read raspM
+if [[ $raspM = "da" || $raspM = "nu" ]]
+then
+finvfM=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $raspM in
+"nu") verfM=1 ;;
+esac
+;;
+
+4)
+clear
+echo "Procese care ruleaza de mai mult de o zi:"
+ps -eo pid,comm,etime --no-headers | grep "-"
+echo
+echo "Procese zombie / defunct:"
+zombii=$(ps -eo pid,ppid,comm,state --no-headers | while read -r pid_z ppid_z comm_z stat_z
+do
+if [ "$stat_z" = "Z" ]
+then
+echo "$pid_z $ppid_z $comm_z $stat_z"
+fi
+done)
+if [ -z "$zombii" ]
+then
+echo "Nu exista procese zombie in acest moment."
+else
+echo "$zombii"
+fi
+finvfM=0
+while [ $finvfM -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read raspM
+if [[ $raspM = "da" || $raspM = "nu" ]]
+then
+finvfM=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $raspM in
+"nu") verfM=1 ;;
+esac
+;;
+
+5)
 clear
 verf1=0
-var1=
 while [ $verf1 -eq 0 ]
 do
 clear
@@ -22,7 +206,7 @@ clear
 else
 if [[ ! "$com1" =~ [a-zA-Z] ]]
 then
-dum1=$(ps $com1 | head -n -1)
+dum1=$(ps $com1 2>/dev/null | head -n -1)
 if [[ -z $dum1 ]]
 then
 echo "Nu exista procesul cautat"
@@ -30,8 +214,8 @@ else
 ps -o pid,comm $com1
 fi
 else
-com1=$(pgrep -x $com1)
-nrproc1=$(ps -o pid,comm $com1 | head -n -1 | wc -l)
+com1=$(pgrep -x "$com1")
+nrproc1=$(ps -o pid,comm $com1 2>/dev/null | head -n -1 | wc -l)
 if [[ -z $com1 ]]
 then
 echo "Nu exista procesul cautat"
@@ -77,32 +261,213 @@ echo "1) Opreste procesul"
 echo "2) Modifica prioritatea procesului"
 echo "3) Afiseaza informatii detaliate despre proces"
 echo "4) Cauta alt proces"
-echo "5) Nimic"
+echo "5) Intoarce-te la meniul principal"
 echo
 option=
 read option
 case $option in
-1) kill $com1 ;;
+1) kill "$com1" 2>/dev/null
+if [ $? -eq 0 ]
+then
+echo "Procesul $com1 a fost oprit."
+scrie_log "Procesul $com1 a fost oprit manual de utilizator."
+else
+echo "Procesul nu a putut fi oprit."
+fi
+;;
 2)verf12=0
 while [ $verf12 -eq 0 ]
 do
- echo "Introdu o valoare de la -20 la +19:"
-read val1 
+echo "Introdu o valoare de la -20 la +19:"
+read val1
 if [[ $val1 -gt 19 || $val1 -lt -20 ]]
 then
 echo "Valoarea introdusa nu este posibila"
 else
-sudo renice $val1 -p $com1 
+sudo renice $val1 -p "$com1"
+scrie_log "Prioritatea procesului $com1 a fost schimbata la $val1."
 verf12=1
 fi
 done;;
 3) ps -o pid,ppid,user,comm,%cpu,%mem,etime,state $com1
 echo ;;
 4)verf2=1 ;;
-5) exit;;
+5) verf2=1
+verf1=1 ;;
 esac
 done
 ;;
 esac
 done
 done
+;;
+
+6)
+clear
+fisier_raport="raport_$(date '+%Y%m%d_%H%M%S').txt"
+{
+echo
+echo "Raport de monitorizare procese"
+echo "Data si ora: $(date '+%Y-%m-%d %H:%M:%S')"
+echo
+echo
+nr_total=$(ps -e --no-headers | wc -l)
+echo "Numar total de procese: $nr_total"
+echo
+echo "Numar procese pe fiecare utilizator:"
+ps -eo user --no-headers | sort | uniq -c | sort -rn
+echo
+echo "Primele 10 procese dupa utilizarea CPU:"
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu --no-headers | head -n 10
+echo
+echo "Primele 10 procese dupa utilizarea memoriei:"
+ps -eo pid,comm,%cpu,%mem --sort=-%mem --no-headers | head -n 10
+echo
+echo "Procese care au depasit pragul CPU ($PRAG_CPU%):"
+ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+do
+cpu_intreg=${cpu_c%.*}
+if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+then
+echo "$pid_c $comm_c $cpu_c"
+fi
+done
+echo
+echo "Procese care au depasit pragul de memorie ($PRAG_MEMORIE%):"
+ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+do
+mem_intreg=${mem_m%.*}
+if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+then
+echo "$pid_m $comm_m $mem_m"
+fi
+done
+echo
+echo "Procese zombie:"
+zombii=$(ps -eo pid,ppid,comm,state --no-headers | while read -r pid_z ppid_z comm_z stat_z
+do
+if [ "$stat_z" = "Z" ]
+then
+echo "$pid_z $ppid_z $comm_z $stat_z"
+fi
+done)
+if [ -z "$zombii" ]
+then
+echo "Nu exista procese zombie in acest moment."
+else
+echo "$zombii"
+fi
+echo
+} > "$fisier_raport"
+echo "Raportul a fost generat in fisierul: $fisier_raport"
+scrie_log "A fost generat raportul $fisier_raport"
+finvfM=0
+while [ $finvfM -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read raspM
+if [[ $raspM = "da" || $raspM = "nu" ]]
+then
+finvfM=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+case $raspM in
+"nu") verfM=1 ;;
+esac
+;;
+
+7)
+clear
+echo "Monitorizarea continua a pornit. Rapoartele se genereaza la fiecare $INTERVAL_MONITORIZARE secunde."
+echo "Apasa Ctrl+C pentru a opri si a te intoarce la meniul principal."
+verf7=0
+while [ $verf7 -eq 0 ]
+do
+fisier_raport="raport_$(date '+%Y%m%d_%H%M%S').txt"
+{
+echo
+echo "Raport de monitorizare procese"
+echo "Data si ora: $(date '+%Y-%m-%d %H:%M:%S')"
+echo
+echo
+nr_total=$(ps -e --no-headers | wc -l)
+echo "Numar total de procese: $nr_total"
+echo
+echo "Numar procese pe fiecare utilizator:"
+ps -eo user --no-headers | sort | uniq -c | sort -rn
+echo
+echo "Primele 10 procese dupa utilizarea CPU:"
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu --no-headers | head -n 10
+echo
+echo "Primele 10 procese dupa utilizarea memoriei:"
+ps -eo pid,comm,%cpu,%mem --sort=-%mem --no-headers | head -n 10
+echo
+echo "Procese care au depasit pragul CPU ($PRAG_CPU%):"
+ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+do
+cpu_intreg=${cpu_c%.*}
+if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+then
+echo "$pid_c $comm_c $cpu_c"
+fi
+done
+echo
+echo "Procese care au depasit pragul de memorie ($PRAG_MEMORIE%):"
+ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+do
+mem_intreg=${mem_m%.*}
+if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+then
+echo "$pid_m $comm_m $mem_m"
+fi
+done
+echo
+echo
+} > "$fisier_raport"
+echo "Raportul a fost generat in fisierul: $fisier_raport"
+scrie_log "A fost generat raportul $fisier_raport"
+cpu_mare=$(ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+do
+cpu_intreg=${cpu_c%.*}
+if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+then
+echo "$pid_c $comm_c $cpu_c"
+fi
+done)
+if [ -n "$cpu_mare" ]
+then
+scrie_log "ALERTA: exista procese care depasesc pragul de CPU ($PRAG_CPU%)."
+fi
+mem_mare=$(ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+do
+mem_intreg=${mem_m%.*}
+if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+then
+echo "$pid_m $comm_m $mem_m"
+fi
+done)
+if [ -n "$mem_mare" ]
+then
+scrie_log "ALERTA: exista procese care depasesc pragul de memorie ($PRAG_MEMORIE%)."
+fi
+sleep "$INTERVAL_MONITORIZARE"
+done
+;;
+
+8)
+echo "Se inchide aplicatia."
+scrie_log "Aplicatia a fost inchisa de utilizator."
+verfM=1
+;;
+
+*)
+echo "Optiunea aleasa nu exista"
+sleep 1
+;;
+
+esac
+done
+exit 0
