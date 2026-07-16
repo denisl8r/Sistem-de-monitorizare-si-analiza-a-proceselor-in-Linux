@@ -359,6 +359,7 @@ echo "$zombii"
 fi
 echo
 } > "$fisier_raport"
+mv $fisier_raport rapoarte
 echo "Raportul a fost generat in fisierul: $fisier_raport"
 scrie_log "A fost generat raportul $fisier_raport"
 finvfM=0
@@ -427,6 +428,7 @@ done
 echo
 echo
 } > "$fisier_raport"
+mv $fisier_raport rapoarte
 echo "Raportul a fost generat in fisierul: $fisier_raport"
 scrie_log "A fost generat raportul $fisier_raport"
 cpu_mare=$(ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
