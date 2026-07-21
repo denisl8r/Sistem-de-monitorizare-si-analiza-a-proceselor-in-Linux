@@ -7,15 +7,31 @@ PRAG_PROCESE_COPIL=10
 PRAG_CPU=80
 PRAG_MEMORIE=80
 FISIER_LOG="monitor.log"
+ZILE_PASTRARE_RAPOARTE=7
 
 if [ -f "$FISIER_CONFIG" ]
 then
 source "$FISIER_CONFIG"
 fi
 
+if [ -f "$FISIER_LOG" ]
+then
+    dimensiune_log=$(stat -c%s "$FISIER_LOG" 2>/dev/null || stat -f%z "$FISIER_LOG" 2>/dev/null)
+    limita_bytes=$((5 * 1024 * 1024))
+    if [ "$dimensiune_log" -ge "$limita_bytes" ]
+    then
+        mv "$FISIER_LOG" "${FISIER_LOG}_$(date '+%Y%m%d_%H%M%S').bak"
+    fi
+fi
+
 scrie_log() {
 echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$FISIER_LOG"
 }
+
+if [ -d "rapoarte" ] && [ -n "$ZILE_PASTRARE_RAPOARTE" ]
+then
+    find rapoarte -type f -name "raport_*.txt" -mtime +$ZILE_PASTRARE_RAPOARTE -exec rm -f {} \;
+fi
 
 scrie_log "Aplicatia a fost pornita."
 
@@ -194,7 +210,14 @@ echo
 verf11=0
 while [ $verf11 -eq 0 ]
 do
+echo "1) Cautare exacta (nume complet sau PID)"
+echo "2) Ajutor cautare (parte din nume sau din PID)"
+echo
+optCaut=
+read optCaut
 com1=
+case $optCaut in
+1)
 echo "Introdu numele sau pid-ul procesului: "
 read com1
 echo
@@ -210,6 +233,7 @@ dum1=$(ps $com1 2>/dev/null | head -n -1)
 if [[ -z $dum1 ]]
 then
 echo "Nu exista procesul cautat"
+com1=
 else
 ps -o pid,comm $com1
 fi
@@ -237,6 +261,48 @@ fi
 fi
 fi
 fi
+;;
+2)
+termen=
+echo "Introdu o parte din numele sau din PID-ul procesului: "
+read termen
+echo
+if [[ -z $termen ]]
+then
+echo "Nu a fost introdus niciun termen de cautare"
+sleep 1
+else
+rezultate=$(ps -eo pid,comm --no-headers | grep -i -- "$termen")
+if [[ -z $rezultate ]]
+then
+echo "Nu a fost gasit niciun proces care sa contina '$termen'"
+else
+echo "Procese gasite:"
+echo "PID   COMM"
+echo "$rezultate"
+echo
+echo "Alege PID-ul procesului dorit (Enter pentru a renunta):"
+pidAles=
+read pidAles
+if [[ -n $pidAles ]]
+then
+if ps -p "$pidAles" > /dev/null 2>&1
+then
+com1=$pidAles
+ps -o pid,comm $com1
+else
+echo "PID-ul introdus nu este valid"
+com1=
+fi
+fi
+fi
+fi
+;;
+*)
+echo "Optiunea aleasa nu exista"
+sleep 1
+;;
+esac
 finvf1=0
 while [ $finvf1 -eq 0 ]
 do
@@ -257,7 +323,7 @@ while [ $verf2 -eq 0 ]
 do
 echo
 echo "Alege ce vrei sa faci cu procesul cautat:"
-echo "1) Opreste procesul"
+echo "1) Opreste procesul "
 echo "2) Modifica prioritatea procesului"
 echo "3) Afiseaza informatii detaliate despre proces"
 echo "4) Cauta alt proces"
@@ -266,13 +332,25 @@ echo
 option=
 read option
 case $option in
-1) kill "$com1" 2>/dev/null
-if [ $? -eq 0 ]
-then
-echo "Procesul $com1 a fost oprit."
-scrie_log "Procesul $com1 a fost oprit manual de utilizator."
+1) 
+utilizator_audit="${SUDO_USER:-$USER}"
+if ps -p "$com1" > /dev/null 2>&1; then
+    kill -15 "$com1" 2>/dev/null
+    sleep 3
+    if ps -p "$com1" > /dev/null 2>&1; then
+        kill -9 "$com1" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "Procesul $com1 a fost oprit fortat (SIGKILL)."
+            scrie_log "AUDIT: Procesul $com1 a fost oprit fortat (SIGKILL) de utilizatorul $utilizator_audit."
+        else
+            echo "Procesul nu a putut fi oprit."
+        fi
+    else
+        echo "Procesul $com1 a fost oprit cu succes (SIGTERM)."
+        scrie_log "AUDIT: Procesul $com1 a fost oprit (SIGTERM) de utilizatorul $utilizator_audit."
+    fi
 else
-echo "Procesul nu a putut fi oprit."
+    echo "Procesul nu mai exista."
 fi
 ;;
 2)verf12=0
@@ -284,8 +362,9 @@ if [[ $val1 -gt 19 || $val1 -lt -20 ]]
 then
 echo "Valoarea introdusa nu este posibila"
 else
+utilizator_audit="${SUDO_USER:-$USER}"
 sudo renice $val1 -p "$com1"
-scrie_log "Prioritatea procesului $com1 a fost schimbata la $val1."
+scrie_log "AUDIT: Prioritatea procesului $com1 a fost schimbata la $val1 de utilizatorul $utilizator_audit."
 verf12=1
 fi
 done;;
@@ -304,6 +383,7 @@ done
 
 6)
 clear
+mkdir -p rapoarte
 fisier_raport="raport_$(date '+%Y%m%d_%H%M%S').txt"
 {
 echo
@@ -324,20 +404,20 @@ echo "Primele 10 procese dupa utilizarea memoriei:"
 ps -eo pid,comm,%cpu,%mem --sort=-%mem --no-headers | head -n 10
 echo
 echo "Procese care au depasit pragul CPU ($PRAG_CPU%):"
-ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+ps -eo pid,%cpu,comm --no-headers | while read -r pid_c cpu_c comm_c
 do
 cpu_intreg=${cpu_c%.*}
-if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+if [[ "$cpu_intreg" =~ ^[0-9]+$ ]] && [ "$cpu_intreg" -gt "$PRAG_CPU" ]
 then
 echo "$pid_c $comm_c $cpu_c"
 fi
 done
 echo
 echo "Procese care au depasit pragul de memorie ($PRAG_MEMORIE%):"
-ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+ps -eo pid,%mem,comm --no-headers | while read -r pid_m mem_m comm_m
 do
 mem_intreg=${mem_m%.*}
-if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+if [[ "$mem_intreg" =~ ^[0-9]+$ ]] && [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
 then
 echo "$pid_m $comm_m $mem_m"
 fi
@@ -359,8 +439,8 @@ echo "$zombii"
 fi
 echo
 } > "$fisier_raport"
-mv $fisier_raport rapoarte
-echo "Raportul a fost generat in fisierul: $fisier_raport"
+mv "$fisier_raport" rapoarte/
+echo "Raportul a fost generat in directorul rapoarte/"
 scrie_log "A fost generat raportul $fisier_raport"
 finvfM=0
 while [ $finvfM -eq 0 ]
@@ -382,10 +462,53 @@ esac
 
 7)
 clear
-echo "Monitorizarea continua a pornit. Rapoartele se genereaza la fiecare $INTERVAL_MONITORIZARE secunde."
-echo "Apasa Ctrl+C pentru a opri si a te intoarce la meniul principal."
-verf7=0
-while [ $verf7 -eq 0 ]
+mkdir -p rapoarte
+FISIER_PID_MONITOR="monitor.pid"
+
+monitor_activ=0
+pid_monitor_salvat=
+if [ -f "$FISIER_PID_MONITOR" ]
+then
+pid_monitor_salvat=$(cat "$FISIER_PID_MONITOR")
+if [ -n "$pid_monitor_salvat" ] && kill -0 "$pid_monitor_salvat" 2>/dev/null
+then
+monitor_activ=1
+fi
+fi
+
+if [ "$monitor_activ" -eq 1 ]
+then
+echo "Monitorizarea continua ruleaza deja in fundal (PID $pid_monitor_salvat)."
+echo
+echo "1) Opreste monitorizarea"
+echo "2) Intoarce-te la meniul principal (monitorizarea continua sa ruleze)"
+optMon=
+read optMon
+case $optMon in
+1)
+kill "$pid_monitor_salvat" 2>/dev/null
+rm -f "$FISIER_PID_MONITOR"
+scrie_log "Monitorizarea continua a fost oprita de utilizator."
+echo "Monitorizarea a fost oprita."
+sleep 1
+;;
+*)
+;;
+esac
+else
+if [ -f "$FISIER_CONFIG" ]
+then
+source "$FISIER_CONFIG"
+fi
+interval_ales=$INTERVAL_MONITORIZARE
+if [[ ! "$interval_ales" =~ ^[0-9]+$ ]] || [ "$interval_ales" -le 0 ]
+then
+echo "Valoarea INTERVAL_MONITORIZARE din fisierul $FISIER_CONFIG este invalida, se foloseste 60 secunde."
+interval_ales=60
+fi
+
+(
+while true
 do
 fisier_raport="raport_$(date '+%Y%m%d_%H%M%S').txt"
 {
@@ -407,20 +530,20 @@ echo "Primele 10 procese dupa utilizarea memoriei:"
 ps -eo pid,comm,%cpu,%mem --sort=-%mem --no-headers | head -n 10
 echo
 echo "Procese care au depasit pragul CPU ($PRAG_CPU%):"
-ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+ps -eo pid,%cpu,comm --no-headers | while read -r pid_c cpu_c comm_c
 do
 cpu_intreg=${cpu_c%.*}
-if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+if [[ "$cpu_intreg" =~ ^[0-9]+$ ]] && [ "$cpu_intreg" -gt "$PRAG_CPU" ]
 then
 echo "$pid_c $comm_c $cpu_c"
 fi
 done
 echo
 echo "Procese care au depasit pragul de memorie ($PRAG_MEMORIE%):"
-ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+ps -eo pid,%mem,comm --no-headers | while read -r pid_m mem_m comm_m
 do
 mem_intreg=${mem_m%.*}
-if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+if [[ "$mem_intreg" =~ ^[0-9]+$ ]] && [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
 then
 echo "$pid_m $comm_m $mem_m"
 fi
@@ -428,13 +551,13 @@ done
 echo
 echo
 } > "$fisier_raport"
-mv $fisier_raport rapoarte
-echo "Raportul a fost generat in fisierul: $fisier_raport"
+mv "$fisier_raport" rapoarte/
 scrie_log "A fost generat raportul $fisier_raport"
-cpu_mare=$(ps -eo pid,comm,%cpu --no-headers | while read -r pid_c comm_c cpu_c
+
+cpu_mare=$(ps -eo pid,%cpu,comm --no-headers | while read -r pid_c cpu_c comm_c
 do
 cpu_intreg=${cpu_c%.*}
-if [ "$cpu_intreg" -gt "$PRAG_CPU" ]
+if [[ "$cpu_intreg" =~ ^[0-9]+$ ]] && [ "$cpu_intreg" -gt "$PRAG_CPU" ]
 then
 echo "$pid_c $comm_c $cpu_c"
 fi
@@ -443,10 +566,11 @@ if [ -n "$cpu_mare" ]
 then
 scrie_log "ALERTA: exista procese care depasesc pragul de CPU ($PRAG_CPU%)."
 fi
-mem_mare=$(ps -eo pid,comm,%mem --no-headers | while read -r pid_m comm_m mem_m
+
+mem_mare=$(ps -eo pid,%mem,comm --no-headers | while read -r pid_m mem_m comm_m
 do
 mem_intreg=${mem_m%.*}
-if [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
+if [[ "$mem_intreg" =~ ^[0-9]+$ ]] && [ "$mem_intreg" -gt "$PRAG_MEMORIE" ]
 then
 echo "$pid_m $comm_m $mem_m"
 fi
@@ -455,11 +579,46 @@ if [ -n "$mem_mare" ]
 then
 scrie_log "ALERTA: exista procese care depasesc pragul de memorie ($PRAG_MEMORIE%)."
 fi
-sleep "$INTERVAL_MONITORIZARE"
+
+sleep "$interval_ales"
 done
+) < /dev/null > /dev/null 2>&1 &
+
+pid_monitor_nou=$!
+disown "$pid_monitor_nou"
+echo "$pid_monitor_nou" > "$FISIER_PID_MONITOR"
+scrie_log "Monitorizarea continua a fost pornita in fundal (PID $pid_monitor_nou), interval $interval_ales secunde."
+
+echo
+echo "Monitorizarea continua a pornit in fundal (PID $pid_monitor_nou)."
+echo "Rapoartele se vor genera la fiecare $interval_ales secunde, chiar daca navighezi prin celelalte optiuni ale meniului."
+finvf7=0
+while [ $finvf7 -eq 0 ]
+do
+echo
+echo "Doresti sa te intorci la meniul principal (da/nu)?"
+read rasp7
+if [[ $rasp7 = "da" || $rasp7 = "nu" ]]
+then
+finvf7=1
+else
+echo "Optiunea aleasa nu exista"
+fi
+done
+if [ "$rasp7" = "nu" ]
+then
+echo "Se inchide aplicatia. Monitorizarea continua ramane activa in fundal (PID $pid_monitor_nou)."
+scrie_log "Aplicatia a fost inchisa de utilizator; monitorizarea continua ramane activa in fundal (PID $pid_monitor_nou)."
+exit 0
+fi
+fi
 ;;
 
 8)
+if [ -f "monitor.pid" ] && kill -0 "$(cat monitor.pid)" 2>/dev/null
+then
+echo "Atentie: monitorizarea continua ruleaza in fundal (PID $(cat monitor.pid)) si va continua sa genereze rapoarte si dupa inchiderea meniului."
+fi
 echo "Se inchide aplicatia."
 scrie_log "Aplicatia a fost inchisa de utilizator."
 verfM=1

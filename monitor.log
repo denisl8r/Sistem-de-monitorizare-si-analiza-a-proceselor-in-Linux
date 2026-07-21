@@ -14,3 +14,30 @@
 2026-07-16 01:40:30 - Aplicatia a fost inchisa de utilizator.
 2026-07-16 01:41:37 - Aplicatia a fost pornita.
 2026-07-16 01:41:40 - A fost generat raportul raport_20260716_014140.txt
+2026-07-21 03:07:22 - Aplicatia a fost pornita.
+2026-07-21 03:07:27 - ALERTA: procesul 1 (systemd) are 41 procese copil, peste pragul 10
+2026-07-21 03:07:27 - ALERTA: procesul 2 (kthreadd) are 116 procese copil, peste pragul 10
+2026-07-21 03:07:28 - ALERTA: procesul 1343 (systemd) are 29 procese copil, peste pragul 10
+2026-07-21 03:07:28 - ALERTA: procesul 1375 (cinnamon-sessio) are 23 procese copil, peste pragul 10
+2026-07-21 03:08:51 - A fost generat raportul raport_20260721_030851.txt
+2026-07-21 03:08:56 - Monitorizarea continua a fost pornita in fundal (PID 9836), interval 60 secunde.
+2026-07-21 03:08:56 - A fost generat raportul raport_20260721_030856.txt
+2026-07-21 03:09:15 - A fost generat raportul raport_20260721_030915.txt
+2026-07-21 03:09:19 - Aplicatia a fost pornita.
+2026-07-21 03:09:23 - Monitorizarea continua a fost oprita de utilizator.
+2026-07-21 03:09:25 - Aplicatia a fost inchisa de utilizator.
+2026-07-21 03:09:42 - Aplicatia a fost pornita.
+2026-07-21 03:09:44 - ALERTA: procesul 1 (systemd) are 41 procese copil, peste pragul 10
+2026-07-21 03:09:44 - ALERTA: procesul 2 (kthreadd) are 116 procese copil, peste pragul 10
+2026-07-21 03:09:46 - ALERTA: procesul 1343 (systemd) are 30 procese copil, peste pragul 10
+2026-07-21 03:09:46 - ALERTA: procesul 1375 (cinnamon-sessio) are 23 procese copil, peste pragul 10
+2026-07-21 03:11:14 - A fost generat raportul raport_20260721_031114.txt
+2026-07-21 03:11:17 - Monitorizarea continua a fost pornita in fundal (PID 11067), interval 60 secunde.
+2026-07-21 03:11:17 - A fost generat raportul raport_20260721_031117.txt
+2026-07-21 03:11:30 - Aplicatia a fost inchisa de utilizator; monitorizarea continua ramane activa in fundal (PID 11067).
+2026-07-21 03:11:36 - Aplicatia a fost pornita.
+2026-07-21 03:11:45 - Monitorizarea continua a fost oprita de utilizator.
+2026-07-21 03:11:47 - Monitorizarea continua a fost pornita in fundal (PID 11115), interval 60 secunde.
+2026-07-21 03:11:48 - A fost generat raportul raport_20260721_031147.txt
+2026-07-21 03:11:55 - Monitorizarea continua a fost oprita de utilizator.
+2026-07-21 03:11:58 - Aplicatia a fost inchisa de utilizator.
